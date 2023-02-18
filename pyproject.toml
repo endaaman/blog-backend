@@ -10,6 +10,10 @@ packages = [{include = "blog_backend"}]
 python = "^3.10"
 uvicorn = "^0.20.0"
 fastapi = "^0.92.0"
+watchdog = "^2.2.1"
+pylint = "^2.16.2"
+pydantic = "^1.10.5"
+python-dotenv = "^0.21.1"
 
 
 [build-system]
