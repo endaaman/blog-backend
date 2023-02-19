@@ -1,30 +1,26 @@
-import time
+import logging
+
 from watchdog.observers import Observer
 from watchdog.events import RegexMatchingEventHandler
 
-from .middlewares import load_blogs, update_cache, read_cache
+# from .middlewares import load_blogs, update_cache, read_cache
+
+logger = logging.getLogger('uvicorn')
 
 
 class WatchHandler(RegexMatchingEventHandler):
-    def __init__(self, callback):
-        super().__init__(regexes=[r'.*\.md$'])
+    def __init__(self, regexes, callback):
+        super().__init__(regexes=regexes)
         self.callback = callback
 
     def on_any_event(self, event):
         self.callback(event)
 
 class Watcher:
-    def __init__(self, target_dir):
+    def __init__(self, target_dir, regexes, callback):
         self.target_dir = target_dir
         self.observer = Observer()
-        self.handler = WatchHandler(callback=self.callback)
-
-    def callback(self, event):
-        print('changed', event.src_path)
-        return
-
-        blogs = load_blogs()
-        update_cache(blogs)
+        self.handler = WatchHandler(regexes=regexes, callback=callback)
 
     def start(self):
         self.observer.schedule(self.handler, self.target_dir, recursive=True)
@@ -32,8 +28,11 @@ class Watcher:
 
 __watcher: Watcher = None
 
-def init_watcher(**kwargs):
+def require_watcher(**kwargs):
     global __watcher
+    if __watcher:
+        logger.info('Watcher is already instanciated')
+        return
     __watcher = Watcher(**kwargs)
 
 def start_watcher():

@@ -4,32 +4,22 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Cache():
-    locked: bool = False
-    flag: asyncio.Event
+    lock: asyncio.Lock
     value: any
 
 # init cache
-__cache = Cache(False, asyncio.Event(), [])
-__cache.flag.set()
+__cache = Cache(asyncio.Event(), [])
+__cache.lock.release()
 
-async def wait_cache():
-    if not __cache.locked:
-        return
-    # wait until unlocked
-    await __cache.flag.wait()
 
 async def read_cache():
-    await wait_cache()
+    await __cache.lock.acquire()
     return __cache
 
-async def start_lock_cache(func):
-    await wait_cache()
-    async def inner(flag):
-        await func()
-        flag.set()
-
-    __cache.flag = asyncio.Event()
-    asyncio.create_task(inner(__cache.flag))
+async def update_cache(func):
+    await __cache.lock.acquire()
+    async with lock:
+        __cache.value = await func()
 
 async def update_cache(value):
     await wait_cache()

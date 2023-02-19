@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..dependencies import get_blogs
+# from ..dependencies import get_blogs
 
 
 router = APIRouter(
     prefix='/blogs',
-    dependencies=[Depends(get_watcher)],
+    # dependencies=[Depends(get_watcher)],
     tags=['blogs'],
 )
 

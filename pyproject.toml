@@ -6,6 +6,9 @@ authors = ["endaaman <ken@endaaman.me>"]
 readme = "README.md"
 packages = [{include = "blog_backend"}]
 
+[tool.poetry.scripts]
+start = "blog_backend:start"
+
 [tool.poetry.dependencies]
 python = "^3.10"
 uvicorn = "^0.20.0"
