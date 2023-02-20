@@ -1,27 +1,25 @@
 import asyncio
-from dataclasses import dataclass, field
+from pydantic.dataclasses import dataclass
 
 
 @dataclass
 class Cache():
-    lock: asyncio.Lock
-    value: any
+    flag: asyncio.Event
+    data: any
 
 # init cache
 __cache = Cache(asyncio.Event(), [])
-__cache.lock.release()
+__cache.flag.set()
 
 
 async def read_cache():
-    await __cache.lock.acquire()
+    await __cache.flag.wait()
     return __cache
 
 async def update_cache(func):
-    await __cache.lock.acquire()
-    async with lock:
-        __cache.value = await func()
-
-async def update_cache(value):
-    await wait_cache()
-    __cache = CacheEntry(locked=False, value=value)
-
+    await __cache.flag.wait()
+    __cache.flag.clear()
+    try:
+        __cache.data = await func()
+    finally:
+        __cache.flag.set()

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-# from ..dependencies import get_blogs
+from ..dependencies import get_blogs
 
 
 router = APIRouter(
     prefix='/blogs',
-    # dependencies=[Depends(get_watcher)],
+    dependencies=[Depends(get_watcher)],
     tags=['blogs'],
 )
 
@@ -15,6 +15,7 @@ fake_db = {"plumbus": {"name": "Plumbus"}, "gun": {"name": "Portal Gun"}}
 
 @router.get('/')
 async def get_all():
+    blogs = await
     return fake_db
 
 
