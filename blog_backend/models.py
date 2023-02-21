@@ -1,24 +1,36 @@
 import datetime
 # pylint: disable=no-name-in-module
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 
 
-class Tag(BaseModel):
+class Category(BaseModel):
     slug: str
     name: str
 
-class Blog(BaseModel):
+class Article(BaseModel):
+    category: Category
     slug: str
     title: str
     date: datetime.date
     body: str
     digest: str = ''
     image: str = ''
-    tags: list[Tag] = []
+    tags: list[str] = Field(default_factory=list)
     special: bool = False
     private: bool = False
 
-class Category(BaseModel):
-    slug: str
-    name: str
-    blogs: list[Blog]
+    @classmethod
+    @validator("date")
+    def validate_date(cls, v):
+        return parse_date(v)
+
+
+class BlogData(BaseModel):
+    articles: list[Article]
+    categories: list[Category]
+    tags: list[str]
+    warnings: dict[str, str]
+    errors: dict[str, str]
+
+
+# Category.update_forward_refs()

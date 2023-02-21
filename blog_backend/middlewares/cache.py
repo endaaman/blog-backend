@@ -14,7 +14,7 @@ __cache.flag.set()
 
 async def read_cache():
     await __cache.flag.wait()
-    return __cache
+    return __cache.data
 
 async def update_cache(func):
     await __cache.flag.wait()

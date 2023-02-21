@@ -11,55 +11,33 @@ from pydantic import validator, Field
 from pydantic.datetime_parse import parse_date
 from pydantic.dataclasses import dataclass
 
-from .models import Blog, Category, Tag
+from .models import Article, Category, BlogData
 
 
-@dataclass
-class BlogContent:
-    category_slug: str
-    slug: str
-    title: str
-    date: datetime.date
-    body: str
-    digest: str = ''
-    image: str = ''
-    tags: list[str] = Field(default_factory=list)
-    special: bool = False
-    private: bool = False
-
-    @classmethod
-    @validator("date")
-    def validate_date(cls, v):
-        return parse_date(v)
-
-
-HEADER_SYMBOL = '---'
+HEADER_DELIMITER = '---\n'
 
 def parse_header(text):
     try:
         header = yaml.safe_load(text)
+        print(header)
     except yaml.YAMLError as e:
+        print(e)
         return {}, str(e)
-
     return header or {}, ''
 
-async def load_blog_content(blogs_dir, path) -> BlogContent:
-    rel = os.path.normpath(os.path.relpath(path, blogs_dir))
-    splitted = os.path.split(rel)
 
-    match splitted:
-        case [filename]:
-            category_slug = '-'
-        case [category_slug, filename]:
-            pass
-        case _:
-            return None, 'skipped'
+@dataclass
+class ArticleLoadContext:
+    article: Article
+    path: str
+    message: str
+
+async def load_article(category, path) -> ArticleLoadContext:
+    filename = os.path.basename(path)
     m = re.match(r'^(\d\d\d\d-\d\d-\d\d)_(.*)\.md$', filename)
     if not m:
-        return None, 'skipped'
-
-    date = m[0]
-    slug = m[1]
+        return ArticleLoadContext(None, path, 'skipped:invalid filename pattern')
+    date, slug = m[1], m[2]
 
     is_yaml = False
     yaml_lines = []
@@ -67,10 +45,11 @@ async def load_blog_content(blogs_dir, path) -> BlogContent:
     async with aiofiles.open(path, mode='r') as f:
         i = 0
         async for line in f:
-            if i == 0 and line == HEADER_SYMBOL:
+            print('line:', line, line == HEADER_DELIMITER)
+            if i == 0 and line == HEADER_DELIMITER:
                 is_yaml = True
                 continue
-            if is_yaml and line == HEADER_SYMBOL:
+            if is_yaml and line == HEADER_DELIMITER:
                 is_yaml = False
                 continue
             if is_yaml:
@@ -80,56 +59,60 @@ async def load_blog_content(blogs_dir, path) -> BlogContent:
             i += 1
 
     if is_yaml:
-        header, header_error = {}, f'yaml tag (`{HEADER_SYMBOL}`) is not closed.'
+        data, message = {}, f'yaml tag (`{HEADER_DELIMITER}`) is not closed.'
     else:
-        header, header_error = parse_header('\n'.join(yaml_lines))
+        data, message = parse_header(''.join(yaml_lines))
 
-    header.setdefault('title', slug)
-    header.setdefault('date', date)
-    header.setdefault('slug', slug)
-    header['category_slug'] = category_slug
-    header['body'] = '\n'.join(body_lines)
+    data.setdefault('title', slug)
+    data.setdefault('date', date)
+    data['body'] = ''.join(body_lines)
+    data['slug'] = slug
+    data['category'] = category
 
-    c = BlogContent(**header)
-    print(c)
-    return c, header_error
+    return ArticleLoadContext(Article(**data), path, message)
 
 
-async def load_blog_contents(blogs_dir) -> list[BlogContent]:
-    paths = glob(os.path.join(blogs_dir, '**', '*.md'), recursive=True)
+async def load_blog_data(articles_dir) -> BlogData:
+    categories = []
     tasks = []
-    for path in paths:
-        # get last item
-        tasks.append(load_blog_content(blogs_dir, path))
-    tt = await asyncio.gather(*tasks)
-
-    tag_map = {}
-    category_map = {}
-
-    for c, error in tt:
-        if not c:
+    for d in sorted(os.listdir(articles_dir)):
+        if not os.path.isdir(os.path.join(articles_dir, d)):
+            # not dir
             continue
-        for t in c.tags:
-            tag_map
+        sp = d.split('_', 1)
+        category_slug = sp[0]
+        category_name = sp[1] if len(sp) > 1 else category_slug
 
-        blog = Blog(
-            slug=c.slug,
-            title=c.title
-            date=c.date,
-            body=c.body,
-            digest=c.digest
-            image=c.image,
-            tags: list[Tag] = []
-            special: bool = False
-            private: bool = False
-        )
+        category = Category(slug=category_slug, name=category_name)
+        categories.append(category)
+        for path in sorted(glob(os.path.join(articles_dir, d, '*.md'))):
+            # get last item
+            tasks.append(load_article(category, path))
+    cc: list[ArticleLoadContext] = await asyncio.gather(*tasks)
 
-    tag_slugs = list(set(itertools.chain(*[c.tags for c in blog_contents])))
-    category_slugs = list(set(c.category_slug for c in blog_contents))
+    tag_set = set()
+    articles = []
+    errors = []
+    warnings = []
+    for c in cc:
+        if not c.article:
+            continue
+        for t in c.article.tags:
+            if not t in tag_set:
+                tag_set.add(t)
+        articles.append(c.article)
+        if c.message:
+            if c.article:
+                warnings[c.path] = c.message
+            else:
+                errors[c.path] = c.message
 
-    tags = {n:Tag(slug=n, name=n) for n in tag_slugs}
-    categories = {Category(slug=n, name=n) for n in category_slugs}
+    tags = list(tag_set)
 
-    # for glob(os.path.join(blogs_dir, '*.md')):
-    #     load_blogs
-    return []
+    return BlogData(
+        categories=categories,
+        articles=articles,
+        tags=tags,
+        warnings=warnings,
+        errors=errors,
+    )
