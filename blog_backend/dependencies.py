@@ -20,8 +20,8 @@ class CachedData:
 async def do_update_cache():
     config = get_config()
     blog_contents = await load_blog_contents(blogs_dir=config.BLOGS_DIR)
-    for blog_content in blog_contents:
-        blog_contents
+    # for blog_content in blog_contents:
+    #     blog_contents
 
     return CachedData(
         blogs=[],
@@ -29,7 +29,7 @@ async def do_update_cache():
         tags=[],
     )
 
-async def update_data(blogs, categories, tags):
+async def reload_data():
     await update_cache(do_update_cache)
 
 

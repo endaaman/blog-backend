@@ -1,3 +1,4 @@
+import datetime
 # pylint: disable=no-name-in-module
 from pydantic import BaseModel
 
@@ -7,19 +8,15 @@ class Tag(BaseModel):
     name: str
 
 class Blog(BaseModel):
-    title: str
     slug: str
+    title: str
+    date: datetime.date
     body: str
+    digest: str = ''
+    image: str = ''
     tags: list[Tag] = []
-
-    def from_text(self, text):
-        return Blog(
-            title='HOGE',
-            slug='hoge',
-            body='hoge hoge fuga fuga',
-            tags=[Tag(slug='tag', title='TAG')],
-            category=Category(slug='category', title=''),
-        )
+    special: bool = False
+    private: bool = False
 
 class Category(BaseModel):
     slug: str
