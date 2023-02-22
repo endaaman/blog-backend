@@ -1,3 +1,4 @@
+import time
 import asyncio
 import logging
 from functools import lru_cache
@@ -7,31 +8,30 @@ from pydantic.dataclasses import dataclass
 
 from .config import get_config
 from .middlewares import read_cache, update_cache
-from .models import Article, Category
+from .models import Article, Category, BlogData
 from .loader import load_blog_data
 
 
 logger = logging.getLogger('uvicorn')
 
+async def get_data() -> BlogData:
+    return await read_cache()
+
 async def do_update_cache():
     config = get_config()
     data = await load_blog_data(articles_dir=config.ARTICLES_DIR)
-    print('cate', data.categories)
-    for a in data.articles:
-        print(a)
-    print('tt', data.tags)
-    print('ee', data.errors)
-    print('ww', data.warnings)
     return data
 
 async def reload_blog_data():
+    start_time = time.perf_counter()
     logger.info('start reload data')
-    await update_cache(do_update_cache)
-    logger.info('done reload data')
-
+    data = await update_cache(do_update_cache)
+    duration = time.perf_counter() - start_time
+    count = len(data.articles)
+    logger.info(f'{count} articles reloaded ({duration*1000:.2f}ms)')
 
 async def get_articles():
-    data = await read_cache()
+    data = await get_data()
     return data.articles
 
 async def get_tags():
@@ -41,3 +41,11 @@ async def get_tags():
 async def get_categories():
     data = await read_cache()
     return data.categories
+
+async def get_errors() -> list[str]:
+    data = await read_cache()
+    return data.errors
+
+async def get_warnings() -> list[str]:
+    data = await read_cache()
+    return data.warnings

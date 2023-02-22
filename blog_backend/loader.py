@@ -3,6 +3,7 @@ import re
 import itertools
 import asyncio
 import datetime
+from collections import OrderedDict
 from glob import glob
 
 import yaml
@@ -14,16 +15,18 @@ from pydantic.dataclasses import dataclass
 from .models import Article, Category, BlogData
 
 
-HEADER_DELIMITER = '---\n'
+HEADER_DELIMITER = '---'
 
 def parse_header(text):
     try:
         header = yaml.safe_load(text)
-        print(header)
     except yaml.YAMLError as e:
-        print(e)
         return {}, str(e)
-    return header or {}, ''
+
+    if header:
+        return header, ''
+
+    return {}, 'Header is empty'
 
 
 @dataclass
@@ -44,8 +47,9 @@ async def load_article(category, path) -> ArticleLoadContext:
     body_lines = []
     async with aiofiles.open(path, mode='r') as f:
         i = 0
-        async for line in f:
-            print('line:', line, line == HEADER_DELIMITER)
+        contents = await f.read()
+        lines = contents.split('\n')
+        for line in lines:
             if i == 0 and line == HEADER_DELIMITER:
                 is_yaml = True
                 continue
@@ -61,7 +65,7 @@ async def load_article(category, path) -> ArticleLoadContext:
     if is_yaml:
         data, message = {}, f'yaml tag (`{HEADER_DELIMITER}`) is not closed.'
     else:
-        data, message = parse_header(''.join(yaml_lines))
+        data, message = parse_header('\n'.join(yaml_lines))
 
     data.setdefault('title', slug)
     data.setdefault('date', date)
@@ -79,21 +83,24 @@ async def load_blog_data(articles_dir) -> BlogData:
         if not os.path.isdir(os.path.join(articles_dir, d)):
             # not dir
             continue
-        sp = d.split('_', 1)
-        category_slug = sp[0]
-        category_name = sp[1] if len(sp) > 1 else category_slug
+        m = re.match(r'^(\d*)_(.*)_(.*)$', d)
+        if not m:
+            continue
+        children = sorted(glob(os.path.join(articles_dir, d, '*.md')))
+        if len(children) == 0:
+            continue
 
-        category = Category(slug=category_slug, name=category_name)
+        category = Category(priority=int(m[1]), slug=m[2], name=m[3])
         categories.append(category)
-        for path in sorted(glob(os.path.join(articles_dir, d, '*.md'))):
+        for path in children:
             # get last item
             tasks.append(load_article(category, path))
     cc: list[ArticleLoadContext] = await asyncio.gather(*tasks)
 
     tag_set = set()
     articles = []
-    errors = []
-    warnings = []
+    errors = OrderedDict()
+    warnings = OrderedDict()
     for c in cc:
         if not c.article:
             continue

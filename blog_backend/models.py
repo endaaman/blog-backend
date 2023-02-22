@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, validator
 
 
 class Category(BaseModel):
+    priority: int
     slug: str
     name: str
 

@@ -23,3 +23,4 @@ async def update_cache(func):
         __cache.data = await func()
     finally:
         __cache.flag.set()
+    return __cache.data

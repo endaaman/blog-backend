@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{include = "blog_backend"}]
 
 [tool.taskipy.tasks]
-dev = "uvicorn blog_backend:app --reload"
+dev = "uvicorn blog_backend:app --reload --port 3000"
 test = "pytest tests"
 
 [tool.poetry.group.dev.dependencies]
