@@ -25,6 +25,7 @@ class Watcher:
     def start(self):
         self.observer.schedule(self.handler, self.target_dir, recursive=True)
         self.observer.start()
+        logger.info(f'Watcher starts on {self.target_dir}')
 
 __watcher: Watcher = None
 

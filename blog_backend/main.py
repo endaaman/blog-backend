@@ -78,10 +78,9 @@ def callback(event):
 @app.on_event("startup")
 async def startup_event():
     config = get_config()
-
     require_watcher(
         target_dir=config.ARTICLES_DIR,
-        regexes=[r'.*\.md$', r'.*meta\.json$'],
+        regexes=[r'.*\.md$'],
         # regexes=[r'.*\d\d\d\d-\d\d-\d\d_.*\.md$'],
         callback=callback)
     start_watcher()

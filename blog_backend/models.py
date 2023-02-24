@@ -1,6 +1,7 @@
 import datetime
 # pylint: disable=no-name-in-module
 from pydantic import BaseModel, Field, validator
+from pydantic.datetime_parse import parse_date
 
 
 class Category(BaseModel):
@@ -20,7 +21,7 @@ class Article(BaseModel):
     special: bool = False
     private: bool = False
 
-    @classmethod
+    # @classmethod
     @validator("date")
     def validate_date(cls, v):
         return parse_date(v)

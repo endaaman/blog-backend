@@ -69,7 +69,7 @@ async def load_article(category, path) -> ArticleLoadContext:
 
     data.setdefault('title', slug)
     data.setdefault('date', date)
-    data['body'] = ''.join(body_lines)
+    data['body'] = '\n'.join(body_lines)
     data['slug'] = slug
     data['category'] = category
 
@@ -115,6 +115,7 @@ async def load_blog_data(articles_dir) -> BlogData:
                 errors[c.path] = c.message
 
     tags = list(tag_set)
+    articles = sorted(articles, key=lambda a: a.date)
 
     return BlogData(
         categories=categories,

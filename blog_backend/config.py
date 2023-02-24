@@ -10,7 +10,7 @@ class Config(BaseSettings):
     class Config:
         env_file = '.env'
 
-    @classmethod
+    # @classmethod
     @validator("ARTICLES_DIR", pre=True)
     def validate_ARTICLES_DIR(cls, v):
         return os.path.abspath(v)
