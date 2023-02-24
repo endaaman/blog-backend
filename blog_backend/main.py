@@ -9,10 +9,11 @@ import watchdog
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware # 追加
 
+from .models import Article
 from .config import get_config
 from .middlewares import debounce
 from .watcher import require_watcher, start_watcher
-from .services import reload_blog_data, get_articles, get_categories, get_tags, get_errors, get_warnings
+from . import services as S
 
 
 logger = logging.getLogger('uvicorn')
@@ -20,21 +21,21 @@ logger = logging.getLogger('uvicorn')
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:8000'],
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_origins=['*'],
+    allow_methods=['*'],
+    allow_headers=['*']
 )
 
 @app.get("/")
 async def root():
     return {
-        'errors': await get_errors(),
-        'warnings': await get_warnings(),
+        'errors': await S.get_errors(),
+        'warnings': await S.get_warnings(),
     }
 
 @app.get('/articles')
-async def get_all_articles(category:str=None, tag:str=None):
-    aa:list[Article] = await get_articles()
+async def get_articles(category:str=None, tag:str=None):
+    aa:list[Article] = await S.get_articles()
     r = []
     for a in aa:
         if category and a.category.slug != category:
@@ -46,8 +47,8 @@ async def get_all_articles(category:str=None, tag:str=None):
 
 
 @app.get('/articles/{category_slug}/{slug}')
-async def get_all_articles(category_slug:str, slug:str=None):
-    aa:list[Article] = await get_articles()
+async def get_article(category_slug:str, slug:str=None):
+    aa:list[Article] = await S.get_articles()
     for a in aa:
         if a.category.slug == category_slug and a.slug == slug:
             return a
@@ -55,19 +56,19 @@ async def get_all_articles(category_slug:str, slug:str=None):
     raise HTTPException(status_code=404, detail="Article not found")
 
 @app.get('/categories')
-async def get_all_categories():
-    return await get_categories()
+async def get_categories():
+    return await S.get_categories()
 
 @app.get('/tags')
-async def get_all_tags():
-    return await get_tags()
+async def get_tags():
+    return await S.get_tags()
 
 
 loop = asyncio.get_event_loop()
 
 @debounce(0.01)
 def debounced(path):
-    loop.call_soon_threadsafe(asyncio.create_task, reload_blog_data())
+    loop.call_soon_threadsafe(asyncio.create_task, S.reload_blog_data())
 
 def callback(event):
     if event.event_type in ['created', 'closed']:
@@ -84,4 +85,4 @@ async def startup_event():
         # regexes=[r'.*\d\d\d\d-\d\d-\d\d_.*\.md$'],
         callback=callback)
     start_watcher()
-    await reload_blog_data()
+    await S.reload_blog_data()
