@@ -6,7 +6,7 @@ import asyncio
 import click
 import uvicorn
 import watchdog
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware # 追加
 
 from .config import get_config
@@ -20,7 +20,7 @@ logger = logging.getLogger('uvicorn')
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:3000'],
+    allow_origins=['http://localhost:8000'],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -42,7 +42,17 @@ async def get_all_articles(category:str=None, tag:str=None):
         if tag and tag not in a.tags:
             continue
         r.append(a)
-    return r
+    return aa
+
+
+@app.get('/articles/{category_slug}/{slug}')
+async def get_all_articles(category_slug:str, slug:str=None):
+    aa:list[Article] = await get_articles()
+    for a in aa:
+        if a.category.slug == category_slug and a.slug == slug:
+            return a
+
+    raise HTTPException(status_code=404, detail="Article not found")
 
 @app.get('/categories')
 async def get_all_categories():
