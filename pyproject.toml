@@ -6,6 +6,9 @@ authors = ["endaaman <ken@endaaman.me>"]
 readme = "README.md"
 packages = [{include = "blog_backend"}]
 
+[tool.poetry.scripts]
+cli = "blog_backend:cli"
+
 [tool.taskipy.tasks]
 dev = "uvicorn blog_backend:app --reload --port 3000"
 test = "pytest tests"
@@ -28,6 +31,8 @@ taskipy = "^1.10.3"
 aiofiles = "^23.1.0"
 pyyaml = "^6.0"
 cerberus = "^1.3.4"
+bcrypt = "^4.0.1"
+click = "^8.1.3"
 
 [build-system]
 requires = ["poetry-core"]
