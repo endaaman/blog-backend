@@ -1,4 +1,7 @@
+import json
+
 import click
+import bcrypt
 
 @click.group()
 def cli():
@@ -15,8 +18,14 @@ def cli():
     '-d',
     '--dest',
     type=str,
-    required=True,
 )
 def password(password, dest):
-    print("PW", password)
-    print("DEST", dest)
+    salt = bcrypt.gensalt(rounds=10, prefix=b'2a')
+    hash_ = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+    if not dest:
+        print(f'hash: `{hash_}`')
+        return
+
+    with open(dest, 'w', encoding='utf-8') as f:
+        f.write(hash_)
