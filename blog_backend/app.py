@@ -3,17 +3,16 @@ import re
 import threading
 import logging
 import asyncio
-from typing import Union
 
 import click
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.security import OAuth2PasswordBearer
-from starlette.middleware.cors import CORSMiddleware # 追加
+from starlette.middleware.cors import CORSMiddleware
 
+from .dependencies import get_is_authorized, get_config, LoginService
 from .models import Article
-from .config import get_config
 from .middlewares import debounce
 from .watcher import require_watcher, start_watcher
 from . import services as S
@@ -37,26 +36,6 @@ async def root():
     }
 
 
-async def get_is_bearer_token(
-    request: Request,
-    authorization: str|None = Header(default=None),
-) -> str|None:
-    token = None
-    if authorization:
-        m = re.match(r'Bearer\s+(.*)$', authorization)
-        if m:
-            token = m[1]
-    return token
-
-
-async def get_is_authorized(
-    request: Request,
-    token: str|None = Depends(get_is_bearer_token),
-) -> bool:
-    if not token:
-        return False
-    return True
-
 
 class SessionPayload(BaseModel):
     password: str
@@ -65,9 +44,15 @@ class SessionPayload(BaseModel):
 async def post_sessions(
     payload:SessionPayload,
     authorized:any=Depends(get_is_authorized),
+    config:any=Depends(get_config),
+    login_service=Depends(LoginService),
 ):
-    print(payload.password)
-    return True
+    token = login_service.login(payload.password)
+
+    if not token:
+        raise HTTPException(status_code=401, detail='Invalid password')
+
+    return {'token': token}
 
 
 @app.get('/articles')

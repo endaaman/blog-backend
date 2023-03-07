@@ -6,7 +6,7 @@ from functools import lru_cache
 from fastapi import Depends, FastAPI
 from pydantic.dataclasses import dataclass
 
-from .config import get_config
+from .config import acquire_config
 from .middlewares import read_cache, update_cache
 from .models import Article, Category, BlogData
 from .loader import load_blog_data
@@ -18,7 +18,7 @@ async def get_data() -> BlogData:
     return await read_cache()
 
 async def do_update_cache():
-    config = get_config()
+    config = acquire_config()
     data = await load_blog_data(articles_dir=config.ARTICLES_DIR)
     return data
 
