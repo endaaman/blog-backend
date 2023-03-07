@@ -1,11 +1,19 @@
+import time
 import re
+import logging
+import asyncio
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 import bcrypt
 from jose import JWTError, jwt
 from fastapi import Depends, Request, Header, HTTPException
+from pydantic.dataclasses import dataclass
+from pydantic import BaseModel
 
-from .config import Config, acquire_config
+from .middlewares import Cache, Config
+from .models import Article, Category, BlogData
+from .loader import load_blog_data
 
 
 JWT_ALGORITHM = 'HS256'
@@ -14,8 +22,12 @@ CUSTOM_KEY = 'I_AM'
 CUSTOM_VALUE = 'ENDAAMAN'
 
 
+logger = logging.getLogger('uvicorn')
+
+
+@lru_cache
 def get_config():
-    return acquire_config()
+    return Config()
 
 async def get_is_bearer_token(
     request: Request,
@@ -56,11 +68,11 @@ async def get_is_authorized(
         raise HTTPException(status_code=401, detail='Your JWT token is expired')
     return True
 
-class BaseService:
-    def __init__(self, config: Config = Depends(get_config)):
+
+class LoginService:
+    def __init__(self, config = Depends(get_config)):
         self.config = config
 
-class LoginService(BaseService):
     def login(self, password) -> bool:
         ok = bcrypt.checkpw(password.encode('utf-8'), self.config.PASSWORD_HASH.encode('utf-8'))
         if not ok:
@@ -72,3 +84,44 @@ class LoginService(BaseService):
         }
 
         return jwt.encode(data, self.config.SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+class BlogService:
+    def __init__(self, config=Depends(get_config)):
+        self.config = config
+        self.cache = Cache.acquire('blog')
+
+    async def get_data(self) -> BlogData:
+        return await self.cache.read()
+
+    async def do_update_cache(self):
+        data = await load_blog_data(articles_dir=self.config.ARTICLES_DIR)
+        return data
+
+    async def reload_blog_data(self):
+        start_time = time.perf_counter()
+        logger.info('start reload data')
+        data = await self.cache.update(self.do_update_cache)
+        duration = time.perf_counter() - start_time
+        count = len(data.articles)
+        logger.info(f'{count} articles reloaded ({duration*1000:.2f}ms)')
+
+    async def get_articles(self):
+        data = await self.get_data()
+        return data.articles
+
+    async def get_tags(self):
+        data = await self.get_data()
+        return data.tags
+
+    async def get_categories(self):
+        data = await self.get_data()
+        return data.categories
+
+    async def get_errors(self) -> list[str]:
+        data = await self.get_data()
+        return data.errors
+
+    async def get_warnings(self) -> list[str]:
+        data = await self.get_data()
+        return data.warnings

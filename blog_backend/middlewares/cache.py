@@ -1,26 +1,33 @@
 import asyncio
-from dataclasses import dataclass
 
+caches = {}
 
-@dataclass
 class Cache():
     flag: asyncio.Event
     data: any
 
-# init cache
-__cache = Cache(asyncio.Event(), [])
-__cache.flag.set()
+    def __init__(self):
+        self.flag = asyncio.Event()
+        self.flag.set()
+        self.data = None
 
+    @classmethod
+    def acquire(cls, name):
+        c = caches.get(name)
+        if not c:
+            c = Cache()
+            caches[name] = c
+        return c
 
-async def read_cache():
-    await __cache.flag.wait()
-    return __cache.data
+    async def read(self):
+        await self.flag.wait()
+        return self.data
 
-async def update_cache(func):
-    await __cache.flag.wait()
-    __cache.flag.clear()
-    try:
-        __cache.data = await func()
-    finally:
-        __cache.flag.set()
-    return __cache.data
+    async def update(self, func):
+        await self.flag.wait()
+        self.flag.clear()
+        try:
+            self.data = await func()
+        finally:
+            self.flag.set()
+        return self.data

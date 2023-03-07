@@ -13,6 +13,10 @@ class Config(BaseSettings):
 
     class Config:
         env_file = '.env'
+        frozen = True
+
+    def __init__(self):
+        super().__init__()
 
     @validator('ARTICLES_DIR', pre=True)
     def validate_ARTICLES_DIR(cls, v):
@@ -20,8 +24,3 @@ class Config(BaseSettings):
 
     def expiration_duration(self):
         return timedelta(self.EXPIRATION_HOURS)
-
-
-@lru_cache()
-def acquire_config():
-    return Config()

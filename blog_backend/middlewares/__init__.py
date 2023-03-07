@@ -1,2 +1,3 @@
-from .cache import read_cache, update_cache
+from .cache import Cache
+from .config import Config
 from .debounce import debounce
