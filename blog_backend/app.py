@@ -12,14 +12,19 @@ from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.cors import CORSMiddleware
 
-from .dependencies import get_is_authorized, LoginService, BlogService, Config, boot_watcher
+from .dependencies import Config
+from .dependencies.funcs import get_is_authorized
+from .dependencies.services import LoginService, BlogWatchService, BlogService
 from .models import Article
 
 
 logger = logging.getLogger('uvicorn')
 
+async def start_watcher(blog_watch_service:BlogWatchService=Depends()):
+    await blog_watch_service.start()
+
 app = FastAPI(
-    dependencies=[Depends(boot_watcher)]
+    dependencies=[Depends(start_watcher)]
 )
 app.add_middleware(
     CORSMiddleware,
@@ -45,23 +50,27 @@ class SessionPayload(BaseModel):
 @app.post('/sessions')
 async def post_sessions(
     payload:SessionPayload,
-    authorized=Depends(get_is_authorized),
     config:Config=Depends(),
     login_service:LoginService=Depends(),
 ):
     token = login_service.login(payload.password)
-
     if not token:
         raise HTTPException(status_code=401, detail='Invalid password')
-
     return {'token': token}
+
+
+@app.get('/sessions')
+async def get_sessions(
+    authorized=Depends(get_is_authorized),
+):
+    return {'auth': authorized}
 
 
 @app.get('/articles')
 async def get_articles(
     category:str=None,
     tag:str=None,
-    authorized:any=Depends(get_is_authorized),
+    authorized=Depends(get_is_authorized),
     S:BlogService=Depends(),
 ):
     aa:list[Article] = await S.get_articles()
@@ -79,7 +88,7 @@ async def get_articles(
 async def get_article(
     category_slug:str,
     slug:str=None,
-    S=Depends(BlogService),
+    S:BlogService=Depends(),
 ):
     aa:list[Article] = await S.get_articles()
     for a in aa:
@@ -90,12 +99,12 @@ async def get_article(
 
 @app.get('/categories')
 async def get_categories(
-    S=Depends(BlogService),
+    S:BlogService=Depends(),
 ):
     return await S.get_categories()
 
 @app.get('/tags')
 async def get_tags(
-    S=Depends(BlogService),
+    S:BlogService=Depends(),
 ):
     return await S.get_tags()

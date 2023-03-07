@@ -1,3 +1,4 @@
+from typing import Callable
 import asyncio
 import logging
 
@@ -27,15 +28,14 @@ class Watcher:
         self.observer.start()
         logger.info(f'Watcher starts on {self.target_dir}')
 
-__watcher: Watcher = None
+watches = {}
 
-def start_watcher(**kwargs):
-    global __watcher
-    if __watcher:
-        logger.info('Watcher is already instanciated')
+def watch_directory(target_dir:str, regexes:list, callback:Callable):
+    if watches.get(target_dir):
+        logger.warning(f'Already watching for {target_dir}')
         return
-    __watcher = Watcher(**kwargs)
-    __watcher.start()
-
-def get_watcher():
-    return __watcher
+    observer = Observer()
+    handler = WatchHandler(regexes=regexes, callback=callback)
+    observer.schedule(handler, target_dir, recursive=True)
+    observer.start()
+    logger.info(f'Watcher starts on {target_dir}')

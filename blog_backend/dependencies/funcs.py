@@ -46,8 +46,6 @@ async def get_is_authorized(
     except JWTError as e:
         raise HTTPException(status_code=401, detail='Invalid authorization') from e
 
-    print(decoded)
-
     exp = decoded.get('exp', None)
     if not exp:
         raise HTTPException(status_code=401, detail='Invalid payload in JWT')

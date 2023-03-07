@@ -11,7 +11,7 @@ from fastapi import Depends, Request, Header, HTTPException
 from pydantic.dataclasses import dataclass
 from pydantic import BaseModel
 
-from ..middlewares import Cache, debounce, Config, start_watcher
+from ..middlewares import Cache, debounce, Config, watch_directory
 from ..models import Article, Category, BlogData
 from ..loader import load_blog_data
 
@@ -61,30 +61,25 @@ class CB:
         self.debounced(event.src_path)
 
 
-class BlogService:
+class BlogWatchService:
     watcher_started = False
 
     def __init__(self, config:Config=Depends()):
         self.config = config
         self.cache = Cache.acquire('blog')
 
-    async def start_watcher(self):
-        if BlogService.watcher_started:
+    async def start(self):
+        if BlogWatchService.watcher_started:
             return
         callback = CB(asyncio.get_event_loop(), self.reload_blog_data)
-        start_watcher(
+        watch_directory(
             target_dir=self.config.ARTICLES_DIR,
             regexes=[r'.*\.md$'],
             # regexes=[r'.*\d\d\d\d-\d\d-\d\d_.*\.md$'],
             callback=callback)
         await self.reload_blog_data()
-        BlogService.watcher_started = True
+        BlogWatchService.watcher_started = True
         logger.info('Watcher started')
-
-    async def get_data(self) -> BlogData:
-        if not BlogService.watcher_started:
-            raise RuntimeError('Watcher did not start.')
-        return await self.cache.read()
 
     async def do_update_cache(self):
         data = await load_blog_data(articles_dir=self.config.ARTICLES_DIR)
@@ -97,6 +92,18 @@ class BlogService:
         duration = time.perf_counter() - start_time
         count = len(data.articles)
         logger.info(f'{count} articles reloaded ({duration*1000:.2f}ms)')
+
+
+
+class BlogService:
+    def __init__(self, config:Config=Depends()):
+        self.config = config
+        self.cache = Cache.acquire('blog')
+
+    async def get_data(self) -> BlogData:
+        if not BlogWatchService.watcher_started:
+            raise RuntimeError('Watcher did not start.')
+        return await self.cache.read()
 
     async def get_articles(self):
         data = await self.get_data()
@@ -117,7 +124,3 @@ class BlogService:
     async def get_warnings(self) -> list[str]:
         data = await self.get_data()
         return data.warnings
-
-
-async def boot_watcher(blog_service:BlogService=Depends()):
-    await blog_service.start_watcher()
