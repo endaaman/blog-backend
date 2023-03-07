@@ -17,7 +17,6 @@ JWT_ALGORITHM = 'HS256'
 CUSTOM_KEY = 'I_AM'
 CUSTOM_VALUE = 'ENDAAMAN'
 
-
 logger = logging.getLogger('uvicorn')
 
 
@@ -50,10 +49,26 @@ async def get_is_authorized(
     if not exp:
         raise HTTPException(status_code=401, detail='Invalid payload in JWT')
 
-    if decoded.get(CUSTOM_KEY) == CUSTOM_VALUE:
+    if decoded.get(CUSTOM_KEY) != CUSTOM_VALUE:
         raise HTTPException(status_code=401, detail='You are not me')
 
     diff = datetime.now() - datetime.fromtimestamp(exp)
     if diff > config.expiration_duration():
         raise HTTPException(status_code=401, detail='Your JWT token is expired')
     return True
+
+
+class LoginService:
+    def __init__(self, config:Config=Depends()):
+        self.config = config
+
+    def login(self, password) -> bool:
+        ok = bcrypt.checkpw(password.encode('utf-8'), self.config.PASSWORD_HASH.encode('utf-8'))
+        if not ok:
+            return None
+
+        data = {
+            'exp': datetime.utcnow() + self.config.expiration_duration()
+        }
+
+        return jwt.encode(data, self.config.SECRET_KEY, algorithm=JWT_ALGORITHM)

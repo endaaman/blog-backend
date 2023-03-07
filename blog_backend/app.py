@@ -13,8 +13,8 @@ from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.cors import CORSMiddleware
 
 from .dependencies import Config
-from .dependencies.funcs import get_is_authorized
-from .dependencies.services import LoginService, BlogWatchService, BlogService
+from .dependencies.auth import get_is_authorized, LoginService
+from .dependencies.blog import BlogWatchService, BlogService
 from .models import Article
 
 
@@ -70,18 +70,23 @@ async def get_sessions(
 async def get_articles(
     category:str=None,
     tag:str=None,
+    withbody:str=None,
     authorized=Depends(get_is_authorized),
     S:BlogService=Depends(),
 ):
     aa:list[Article] = await S.get_articles()
-    r = []
+    dd = []
     for a in aa:
         if category and a.category.slug != category:
             continue
         if tag and tag not in a.tags:
             continue
-        r.append(a)
-    return aa
+        if not authorized and a.private:
+            continue
+
+        d = a.dict(exclude={'body'} if withbody is None else set())
+        dd.append(d)
+    return dd
 
 
 @app.get('/articles/{category_slug}/{slug}')

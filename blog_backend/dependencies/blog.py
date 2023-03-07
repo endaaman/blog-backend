@@ -16,34 +16,7 @@ from ..models import Article, Category, BlogData
 from ..loader import load_blog_data
 
 
-JWT_ALGORITHM = 'HS256'
-
-CUSTOM_KEY = 'I_AM'
-CUSTOM_VALUE = 'ENDAAMAN'
-
-
 logger = logging.getLogger('uvicorn')
-
-
-
-
-class LoginService:
-    def __init__(self, config:Config=Depends()):
-        self.config = config
-
-    def login(self, password) -> bool:
-        ok = bcrypt.checkpw(password.encode('utf-8'), self.config.PASSWORD_HASH.encode('utf-8'))
-        if not ok:
-            return None
-
-        data = {
-            CUSTOM_KEY: CUSTOM_VALUE,
-            'exp': datetime.utcnow() + self.config.expiration_duration()
-        }
-
-        return jwt.encode(data, self.config.SECRET_KEY, algorithm=JWT_ALGORITHM)
-
-
 
 
 class CB:
@@ -53,7 +26,7 @@ class CB:
 
     @debounce(0.01)
     def debounced(self, path):
-        self.loop.call_soon_threadsafe(asyncio.create_task, self.handler)
+        self.loop.call_soon_threadsafe(asyncio.create_task, self.handler())
 
     def __call__(self, event):
         if event.event_type in ['created', 'closed']:
@@ -105,7 +78,7 @@ class BlogService:
             raise RuntimeError('Watcher did not start.')
         return await self.cache.read()
 
-    async def get_articles(self):
+    async def get_articles(self, include_private=False):
         data = await self.get_data()
         return data.articles
 
