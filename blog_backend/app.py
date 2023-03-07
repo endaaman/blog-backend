@@ -1,12 +1,15 @@
 import os
+import re
 import threading
 import logging
 import asyncio
+from typing import Union
 
 import click
-import uvicorn
-import watchdog
-from fastapi import FastAPI, HTTPException
+from jose import JWTError, jwt
+from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends, Request, Header
+from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.cors import CORSMiddleware # 追加
 
 from .models import Article
@@ -33,8 +36,46 @@ async def root():
         'warnings': await S.get_warnings(),
     }
 
+
+async def get_is_bearer_token(
+    request: Request,
+    authorization: str|None = Header(default=None),
+) -> str|None:
+    token = None
+    if authorization:
+        m = re.match(r'Bearer\s+(.*)$', authorization)
+        if m:
+            token = m[1]
+    return token
+
+
+async def get_is_authorized(
+    request: Request,
+    token: str|None = Depends(get_is_bearer_token),
+) -> bool:
+    if not token:
+        return False
+    return True
+
+
+class SessionPayload(BaseModel):
+    password: str
+
+@app.post('/sessions')
+async def post_sessions(
+    payload:SessionPayload,
+    authorized:any=Depends(get_is_authorized),
+):
+    print(payload.password)
+    return True
+
+
 @app.get('/articles')
-async def get_articles(category:str=None, tag:str=None):
+async def get_articles(
+    category:str=None, tag:str=None,
+    authorized:any=Depends(get_is_authorized),
+):
+    print(authorized)
     aa:list[Article] = await S.get_articles()
     r = []
     for a in aa:
