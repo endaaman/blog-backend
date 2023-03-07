@@ -29,14 +29,12 @@ class Watcher:
 
 __watcher: Watcher = None
 
-def require_watcher(**kwargs):
+def start_watcher(**kwargs):
     global __watcher
     if __watcher:
         logger.info('Watcher is already instanciated')
         return
     __watcher = Watcher(**kwargs)
-
-def start_watcher():
     __watcher.start()
 
 def get_watcher():

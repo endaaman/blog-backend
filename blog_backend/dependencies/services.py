@@ -11,9 +11,9 @@ from fastapi import Depends, Request, Header, HTTPException
 from pydantic.dataclasses import dataclass
 from pydantic import BaseModel
 
-from .middlewares import Cache, Config
-from .models import Article, Category, BlogData
-from .loader import load_blog_data
+from ..middlewares import Cache, debounce, Config, start_watcher
+from ..models import Article, Category, BlogData
+from ..loader import load_blog_data
 
 
 JWT_ALGORITHM = 'HS256'
@@ -25,52 +25,10 @@ CUSTOM_VALUE = 'ENDAAMAN'
 logger = logging.getLogger('uvicorn')
 
 
-@lru_cache
-def get_config():
-    return Config()
-
-async def get_is_bearer_token(
-    request: Request,
-    authorization: str|None = Header(default=None),
-) -> str|None:
-    token = None
-    if authorization:
-        m = re.match(r'Bearer\s+(.*)$', authorization)
-        if m:
-            token = m[1]
-    return token
-
-
-async def get_is_authorized(
-    request: Request,
-    config: Config = Depends(get_config),
-    token: str|None = Depends(get_is_bearer_token),
-) -> bool:
-    if not token:
-        return False
-
-    try:
-        decoded = jwt.decode(token, config.SECRET_KEY, algorithms=[JWT_ALGORITHM])
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail='Invalid authorization') from e
-
-    print(decoded)
-
-    exp = decoded.get('exp', None)
-    if not exp:
-        raise HTTPException(status_code=401, detail='Invalid payload in JWT')
-
-    if decoded.get(CUSTOM_KEY) == CUSTOM_VALUE:
-        raise HTTPException(status_code=401, detail='You are not me')
-
-    diff = datetime.now() - datetime.fromtimestamp(exp)
-    if diff > config.expiration_duration():
-        raise HTTPException(status_code=401, detail='Your JWT token is expired')
-    return True
 
 
 class LoginService:
-    def __init__(self, config = Depends(get_config)):
+    def __init__(self, config:Config=Depends()):
         self.config = config
 
     def login(self, password) -> bool:
@@ -86,12 +44,46 @@ class LoginService:
         return jwt.encode(data, self.config.SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
+
+
+class CB:
+    def __init__(self, loop, handler):
+        self.loop = loop
+        self.handler = handler
+
+    @debounce(0.01)
+    def debounced(self, path):
+        self.loop.call_soon_threadsafe(asyncio.create_task, self.handler)
+
+    def __call__(self, event):
+        if event.event_type in ['created', 'closed']:
+            return
+        self.debounced(event.src_path)
+
+
 class BlogService:
-    def __init__(self, config=Depends(get_config)):
+    watcher_started = False
+
+    def __init__(self, config:Config=Depends()):
         self.config = config
         self.cache = Cache.acquire('blog')
 
+    async def start_watcher(self):
+        if BlogService.watcher_started:
+            return
+        callback = CB(asyncio.get_event_loop(), self.reload_blog_data)
+        start_watcher(
+            target_dir=self.config.ARTICLES_DIR,
+            regexes=[r'.*\.md$'],
+            # regexes=[r'.*\d\d\d\d-\d\d-\d\d_.*\.md$'],
+            callback=callback)
+        await self.reload_blog_data()
+        BlogService.watcher_started = True
+        logger.info('Watcher started')
+
     async def get_data(self) -> BlogData:
+        if not BlogService.watcher_started:
+            raise RuntimeError('Watcher did not start.')
         return await self.cache.read()
 
     async def do_update_cache(self):
@@ -125,3 +117,7 @@ class BlogService:
     async def get_warnings(self) -> list[str]:
         data = await self.get_data()
         return data.warnings
+
+
+async def boot_watcher(blog_service:BlogService=Depends()):
+    await blog_service.start_watcher()

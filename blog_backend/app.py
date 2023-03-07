@@ -12,50 +12,14 @@ from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.cors import CORSMiddleware
 
-from .dependencies import get_is_authorized, get_config, LoginService, BlogService
+from .dependencies import get_is_authorized, LoginService, BlogService, Config, boot_watcher
 from .models import Article
-from .middlewares import debounce, Config
-from .watcher import require_watcher, start_watcher
 
 
 logger = logging.getLogger('uvicorn')
 
-
-class CB:
-    def __init__(self, loop, handler):
-        self.loop = loop
-        self.handler = handler
-
-    @debounce(0.01)
-    def debounced(self, path):
-        self.loop.call_soon_threadsafe(asyncio.create_task, self.handler)
-
-    def __call__(self, event):
-        if event.event_type in ['created', 'closed']:
-            return
-        self.debounced(event.src_path)
-
-__initialized = False
-
-async def init_watcher(
-    config:Config=Depends(get_config),
-    S:BlogService=Depends()
-):
-    global __initialized
-    if __initialized:
-        return
-    callback = CB(asyncio.get_event_loop(), S.reload_blog_data)
-    require_watcher(
-        target_dir=config.ARTICLES_DIR,
-        regexes=[r'.*\.md$'],
-        # regexes=[r'.*\d\d\d\d-\d\d-\d\d_.*\.md$'],
-        callback=callback)
-    start_watcher()
-    await S.reload_blog_data()
-    __initialized = True
-
 app = FastAPI(
-    dependencies=[Depends(init_watcher)]
+    dependencies=[Depends(boot_watcher)]
 )
 app.add_middleware(
     CORSMiddleware,
@@ -75,7 +39,6 @@ async def root(
     }
 
 
-
 class SessionPayload(BaseModel):
     password: str
 
@@ -83,7 +46,7 @@ class SessionPayload(BaseModel):
 async def post_sessions(
     payload:SessionPayload,
     authorized=Depends(get_is_authorized),
-    config=Depends(get_config),
+    config:Config=Depends(),
     login_service:LoginService=Depends(),
 ):
     token = login_service.login(payload.password)
