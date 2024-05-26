@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "blog-backend"
+version = "0.1.0"
+description = ""
+authors = ["endaaman <ken@endaaman.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.111.0"
+pydantic = "^2.7.1"
+watchdog = "^4.0.1"
+taskipy = "^1.12.2"
+aiofiles = "^23.2.1"
+
+[tool.poetry.group.dev.dependencies]
+jedi-language-server = "^0.41.2"
+ipython = "^8.23.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.taskipy.tasks]
+dev = "uvicorn blog_backend:app --reload --host 0.0.0.0 --port 3000"
+prod = "uvicorn blog_backend:app --host 0.0.0.0 --port 3000"
+batch = "python blog_backend/batch.py"
