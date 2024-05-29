@@ -18,7 +18,7 @@ router = APIRouter(
     tags=['api'],
 )
 
-@router.get('/aa')
+@router.get('/articles')
 async def get_articles(category:str=Query(None), tag:str=Query(None)):
     data = store.get_blog_data()
     aa = []
@@ -32,12 +32,7 @@ async def get_articles(category:str=Query(None), tag:str=Query(None)):
         aa.append(a)
     return aa
 
-# @router.get('/aa/{a}')
-# async def get_article(c):
-#     data = store.get_blog_data()
-#     return data.articles
-
-@router.get('/cc')
+@router.get('/categories')
 async def get_articles_by_category():
     data = store.get_blog_data()
     return data.categories
@@ -47,7 +42,6 @@ async def get_articles_by_category():
     data = store.get_blog_data()
     return data.tags
 
-
 @router.get('/status')
 async def get_status():
     data = store.get_blog_data()
@@ -55,3 +49,9 @@ async def get_status():
         'warnings': data.warnings,
         'errors': data.errors,
     }
+
+
+@router.get('/data')
+async def get_status():
+    data = store.get_blog_data()
+    return data
