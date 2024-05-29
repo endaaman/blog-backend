@@ -2,7 +2,7 @@
 name = "blog-backend"
 version = "0.1.0"
 description = ""
-authors = ["endaaman <ken@endaaman.me>"]
+authors = ["endaaman <ken@endaaman.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]

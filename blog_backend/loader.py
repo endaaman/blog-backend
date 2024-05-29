@@ -11,7 +11,7 @@ import aiofiles
 from pydantic import validator, Field
 from pydantic.dataclasses import dataclass
 
-from .models import Article, Category, BlogData
+from .models import Article, Category, Tag, BlogData
 
 
 META_FILE = 'meta.toml'
@@ -33,11 +33,12 @@ def parse_header(text):
 
 @dataclass
 class ArticleLoadContext:
-    article: Article
+    article: Article|None
     path: str
     message: str
 
-async def load_article(category, path) -> ArticleLoadContext:
+
+async def load_article(path, category, all_tags) -> ArticleLoadContext:
     filename = os.path.basename(path)
     m = re.match(r'^(\d\d\d\d-\d\d-\d\d)_(.*)\.md$', filename)
     if not m:
@@ -59,6 +60,7 @@ async def load_article(category, path) -> ArticleLoadContext:
                 continue
             is_yaml = False
             yaml_end_index = i
+            break
 
     if yaml_start_index >= 0 and yaml_end_index >= 0 and yaml_end_index-yaml_start_index>=1:
         yaml_text = '\n'.join(lines[yaml_start_index+1:yaml_end_index])
@@ -67,18 +69,33 @@ async def load_article(category, path) -> ArticleLoadContext:
     else:
         data = {}
         data, message = {}, f'No YAML header.'
+        print(yaml_start_index, yaml_end_index)
         body = '\n'.join(lines)
+
+    tags = []
+    if data.get('tags'):
+        for t in data['tags']:
+            tag = all_tags.get(t, None)
+            if tag:
+                tag.count += 1
+            else:
+                tag = Tag(name=t, count=1)
+                all_tags[t] = tag
+            tags.append(tag)
 
     data.setdefault('title', slug)
     data.setdefault('date', date)
-    data.setdefault('tags', [])
+    data['tags'] = tags
     data['body'] = body
     data['slug'] = slug
     data['category'] = category
     try:
         a = Article(**data)
     except Exception as e:
-        return ArticleLoadContext(None, path, str(e))
+        warning = None
+        if not a['body']:
+            warning = 'body is empty'
+        return ArticleLoadContext(warning, path, str(e))
 
     return ArticleLoadContext(a, path, message)
 
@@ -89,11 +106,13 @@ async def load_blog_data(dir) -> BlogData:
     warnings = {}
 
     categories = {}
+    tags = {}
     meta_path = J(dir, META_FILE)
     if os.path.exists(meta_path):
         async with aiofiles.open(meta_path, mode='rb') as f:
             content = await f.read()
             meta = tomllib.loads(content.decode('utf-8'))
+
         meta.setdefault('Category', [])
         for i, data in enumerate(meta['Category']):
             try:
@@ -117,18 +136,14 @@ async def load_blog_data(dir) -> BlogData:
             categories[c.slug] = c
 
         for path in children:
-            tasks.append(load_article(category=c, path=path))
+            tasks.append(load_article(path=path, category=c, all_tags=tags))
 
     cc: list[ArticleLoadContext] = await asyncio.gather(*tasks)
 
-    tag_set = set()
     articles = []
     for c in cc:
         if not c.article:
             continue
-        for t in c.article.tags:
-            if not t in tag_set:
-                tag_set.add(t)
         articles.append(c.article)
         if c.message:
             if c.article:
@@ -136,13 +151,22 @@ async def load_blog_data(dir) -> BlogData:
             else:
                 errors[c.path] = c.message
 
-    tags = list(tag_set)
     articles = sorted(articles, key=lambda a: a.date)
+
+    m = {}
+    # dup check
+    for a in articles:
+        k = f'{a.category.slug}/{a.slug}'
+        v =  m.get(k, None)
+        if v:
+            warnings[k] = 'Slug duprication'
+        else:
+            m[k] = a
 
     return BlogData(
         categories=list(categories.values()),
-        articles=articles,
-        tags=tags,
+        articles=articles[::-1],
+        tags=sorted(tags.values(), key=lambda t: -t.count),
         warnings=warnings,
         errors=errors,
     )

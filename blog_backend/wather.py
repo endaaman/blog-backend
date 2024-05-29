@@ -1,3 +1,4 @@
+from datetime import datetime
 import asyncio
 from functools import wraps
 
@@ -46,6 +47,15 @@ class WatchedFileHandler(FileSystemEventHandler):
 
     async def reload(self):
         blog_data = await load_blog_data(self.dir)
+        now = datetime.now()
+
+        print('reloaded:', now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+        print('Articles: ', len(blog_data.articles))
+        print('Categories: ', len(blog_data.categories))
+        print('Tags: ', len(blog_data.tags))
+        print('Warnings: ', len(blog_data.warnings))
+        print('Errors: ', len(blog_data.errors))
+        print()
         global_store.set_blog_data(blog_data)
 
 

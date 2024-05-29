@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field, validator
 class Category(BaseModel):
     slug: str
     label: str
+    hidden: bool = True
+
+class Tag(BaseModel):
+    name: str
+    count: int = 0
 
 class Article(BaseModel):
     category: Category
@@ -14,7 +19,7 @@ class Article(BaseModel):
     body: str
     digest: str = ''
     image: str = ''
-    tags: list[str] = Field(default_factory=list)
+    tags: list[Tag]
     special: bool = False
     private: bool = False
 
@@ -31,6 +36,6 @@ class Article(BaseModel):
 class BlogData(BaseModel):
     articles: list[Article]
     categories: list[Category]
-    tags: list[str]
+    tags: list[Tag]
     warnings: dict[str, str]
     errors: dict[str, str]
