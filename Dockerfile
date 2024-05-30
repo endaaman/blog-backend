@@ -14,7 +14,7 @@ RUN poetry install
 
 COPY ./blog_backend ./blog_backend
 
-VOLUME ["/app/data", "/app/static"]
+VOLUME ["/app/data"]
 EXPOSE 3000
 
 CMD ["poetry", "run", "task", "prod"]

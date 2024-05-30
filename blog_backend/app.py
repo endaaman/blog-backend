@@ -4,11 +4,10 @@ import asyncio
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Header, File, UploadFile, Response, Form
 from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router as api_router
-from .const import BLOG_DATA_DIR, STATIC_DIR
+from .const import BLOG_DATA_DIR
 from .wather import start_watcher
 
 
@@ -24,7 +23,6 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
-app.mount('/static', StaticFiles(directory=STATIC_DIR), name='static')
 
 @app.on_event('startup')
 async def on_startup():
