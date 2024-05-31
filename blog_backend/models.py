@@ -7,10 +7,6 @@ class Category(BaseModel):
     label: str
     hidden: bool = True
 
-class Tag(BaseModel):
-    name: str
-    count: int = 0
-
 class Article(BaseModel):
     category: Category
     slug: str
@@ -19,7 +15,7 @@ class Article(BaseModel):
     body: str
     digest: str = ''
     image: str = ''
-    tags: list[Tag]
+    tags: list[str]
     special: bool = False
     private: bool = False
 
@@ -36,6 +32,6 @@ class Article(BaseModel):
 class BlogData(BaseModel):
     articles: list[Article]
     categories: list[Category]
-    tags: list[Tag]
+    tags: list[str]
     warnings: dict[str, str]
     errors: dict[str, str]

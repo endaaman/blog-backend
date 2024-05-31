@@ -50,7 +50,6 @@ async def get_status():
         'errors': data.errors,
     }
 
-
 @router.get('/data')
 async def get_status():
     data = store.get_blog_data()

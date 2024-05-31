@@ -11,7 +11,7 @@ import aiofiles
 from pydantic import validator, Field
 from pydantic.dataclasses import dataclass
 
-from .models import Article, Category, Tag, BlogData
+from .models import Article, Category, BlogData
 
 
 META_FILE = 'meta.toml'
@@ -38,7 +38,7 @@ class ArticleLoadContext:
     message: str
 
 
-async def load_article(path, category, all_tags) -> ArticleLoadContext:
+async def load_article(path, category) -> ArticleLoadContext:
     filename = os.path.basename(path)
     m = re.match(r'^(\d\d\d\d-\d\d-\d\d)_(.*)\.md$', filename)
     if not m:
@@ -72,20 +72,9 @@ async def load_article(path, category, all_tags) -> ArticleLoadContext:
         print(yaml_start_index, yaml_end_index)
         body = '\n'.join(lines)
 
-    tags = []
-    if data.get('tags'):
-        for t in data['tags']:
-            tag = all_tags.get(t, None)
-            if tag:
-                tag.count += 1
-            else:
-                tag = Tag(name=t, count=1)
-                all_tags[t] = tag
-            tags.append(tag)
-
     data.setdefault('title', slug)
     data.setdefault('date', date)
-    data['tags'] = tags
+    data.setdefault('tags', [])
     data['body'] = body
     data['slug'] = slug
     data['category'] = category
@@ -93,7 +82,7 @@ async def load_article(path, category, all_tags) -> ArticleLoadContext:
         a = Article(**data)
     except Exception as e:
         warning = None
-        if not a['body']:
+        if not data['body']:
             warning = 'body is empty'
         return ArticleLoadContext(warning, path, str(e))
 
@@ -106,7 +95,6 @@ async def load_blog_data(dir) -> BlogData:
     warnings = {}
 
     categories = {}
-    tags = {}
     meta_path = J(dir, META_FILE)
     if os.path.exists(meta_path):
         async with aiofiles.open(meta_path, mode='rb') as f:
@@ -136,7 +124,7 @@ async def load_blog_data(dir) -> BlogData:
             categories[c.slug] = c
 
         for path in children:
-            tasks.append(load_article(path=path, category=c, all_tags=tags))
+            tasks.append(load_article(path=path, category=c))
 
     cc: list[ArticleLoadContext] = await asyncio.gather(*tasks)
 
@@ -154,7 +142,8 @@ async def load_blog_data(dir) -> BlogData:
     articles = sorted(articles, key=lambda a: a.date)
 
     m = {}
-    # dup check
+    tags = []
+    # dup check and curate tags
     for a in articles:
         k = f'{a.category.slug}/{a.slug}'
         v =  m.get(k, None)
@@ -162,11 +151,14 @@ async def load_blog_data(dir) -> BlogData:
             warnings[k] = 'Slug duprication'
         else:
             m[k] = a
+        tags += a.tags
+
+    tags = list(set(tags))
 
     return BlogData(
         categories=list(categories.values()),
         articles=articles[::-1],
-        tags=sorted(tags.values(), key=lambda t: -t.count),
+        tags=tags,
         warnings=warnings,
         errors=errors,
     )
