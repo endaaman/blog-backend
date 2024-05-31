@@ -32,6 +32,16 @@ async def get_articles(category:str=Query(None), tag:str=Query(None)):
         aa.append(a)
     return aa
 
+@router.get('/articles/{c}/{s}')
+async def get_article(c:str, s:str):
+    data = store.get_blog_data()
+    for a in data.articles:
+        if a.category.slug == c:
+            if a.slug == s:
+                return a
+
+    raise HTTPException(404)
+
 @router.get('/categories')
 async def get_articles_by_category():
     data = store.get_blog_data()
