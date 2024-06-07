@@ -14,6 +14,7 @@ from pydantic.dataclasses import dataclass
 from .models import Article, Category, BlogData
 
 
+NO_TAG_NAME = 'タグなし'
 META_FILE = 'meta.toml'
 HEADER_DELIMITER = '---'
 
@@ -74,7 +75,9 @@ async def load_article(path, category) -> ArticleLoadContext:
 
     data.setdefault('title', slug)
     data.setdefault('date', date)
-    data.setdefault('tags', [])
+    tags = data.get('tags', []) or []
+    if len(tags) == 0:
+        data['tags'] = [NO_TAG_NAME]
     data['body'] = body
     data['slug'] = slug
     data['category'] = category

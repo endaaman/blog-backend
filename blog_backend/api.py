@@ -29,7 +29,7 @@ async def get_articles(category:str=Query(None), tag:str=Query(None)):
         if tag:
             if tag not in a.tags:
                 continue
-        aa.append(a)
+        aa.append(a.dict(exclude={'body'}))
     return aa
 
 @router.get('/articles/{c}/{s}')
@@ -39,7 +39,6 @@ async def get_article(c:str, s:str):
         if a.category.slug == c:
             if a.slug == s:
                 return a
-
     raise HTTPException(404)
 
 @router.get('/categories')
@@ -63,4 +62,4 @@ async def get_status():
 @router.get('/data')
 async def get_status():
     data = store.get_blog_data()
-    return data
+    return data.dict(exclude={'articles': {'__all__': {'body'}}})
