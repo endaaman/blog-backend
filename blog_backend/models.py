@@ -17,7 +17,7 @@ class Article(BaseModel):
     image: str = ''
     tags: list[str]
     special: bool = False
-    private: bool = False
+    draft: bool = False
 
     @validator('date', pre=True)
     def parse_date(cls, value):
