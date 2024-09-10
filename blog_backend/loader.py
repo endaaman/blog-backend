@@ -139,8 +139,10 @@ async def load_blog_data(dir) -> BlogData:
         if c.message:
             if c.article:
                 warnings[c.path] = c.message
+                print(f'Warn[file={c.path}]:', c.message, )
             else:
                 errors[c.path] = c.message
+                print(f'Error:', c.message)
 
     articles = sorted(articles, key=lambda a: a.date)
 
