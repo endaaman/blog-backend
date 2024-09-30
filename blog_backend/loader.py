@@ -66,7 +66,7 @@ async def load_article(path, category) -> ArticleLoadContext:
     if yaml_start_index >= 0 and yaml_end_index >= 0 and yaml_end_index-yaml_start_index>=1:
         yaml_text = '\n'.join(lines[yaml_start_index+1:yaml_end_index])
         data, message = parse_header(yaml_text)
-        body = '\n'.join(lines[yaml_end_index+1:-1])
+        body = '\n'.join(lines[yaml_end_index+1:])
     else:
         data = {}
         data, message = {}, f'No YAML header.'
