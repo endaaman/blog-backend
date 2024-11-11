@@ -6,9 +6,10 @@ from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler
 
-# from .utils import debounce
+from .utils import purge_cf_cache
 from .loader import load_blog_data
 from .store import global_store
+from .const import APP_ENV
 
 
 def debounce(delay):
@@ -46,6 +47,11 @@ class WatchedFileHandler(FileSystemEventHandler):
         f = asyncio.run_coroutine_threadsafe(self.reload(), self.loop)
 
     async def reload(self):
+        if APP_ENV == 'prod':
+            purge_handle = asyncio.create_task(purge_cf_cache())
+        else:
+            print('NOTE: APP_ENV==dev, skipping cache purging')
+
         blog_data = await load_blog_data(self.dir)
         now = datetime.now()
 
@@ -57,6 +63,13 @@ class WatchedFileHandler(FileSystemEventHandler):
         print('Errors: ', len(blog_data.errors))
         print()
         global_store.set_blog_data(blog_data)
+
+        if APP_ENV == 'prod':
+            error = await purge_handle
+            if error is None:
+                print('Successfully purged Cloudflare cache')
+            else:
+                print('Cache purge failed:', error)
 
 
 global_observer = PollingObserver()

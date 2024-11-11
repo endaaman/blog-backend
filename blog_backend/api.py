@@ -3,7 +3,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Header,
 from fastapi.params import Query
 
 from .store import global_store as store
-
+from .utils import purge_cf_cache
 
 
 class BlogService:
@@ -63,3 +63,10 @@ async def get_status():
 async def get_status():
     data = store.get_blog_data()
     return data.dict(exclude={'articles': {'__all__': {'body'}}})
+
+@router.get('/purge')
+async def root():
+    error = await purge_cf_cache()
+    if error is None:
+        return { 'message': 'Successfully purged Cloudflare cache'}
+    return { 'message': f'Cache purge failed: {error}', }
