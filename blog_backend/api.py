@@ -51,14 +51,6 @@ async def get_articles_by_category():
     data = store.get_blog_data()
     return data.tags
 
-@router.get('/status')
-async def get_status():
-    data = store.get_blog_data()
-    return {
-        'warnings': data.warnings,
-        'errors': data.errors,
-    }
-
 @router.get('/data')
 async def get_status():
     data = store.get_blog_data()
@@ -70,3 +62,12 @@ async def root():
     if error is None:
         return { 'message': 'Successfully purged Cloudflare cache'}
     return { 'message': f'Cache purge failed: {error}', }
+
+@router.get('/')
+async def get_status():
+    data = store.get_blog_data()
+    return {
+        'message': 'Hey there, this is endaaman.com API server.',
+        'warnings': data.warnings,
+        'errors': data.errors,
+    }
