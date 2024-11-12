@@ -37,7 +37,7 @@ async def purge_cf_cache():
             response = await client.post(
                 'https://api.cloudflare.com/client/v4/zones/91c982d0d1a8eb1e3402e917693fbb53/purge_cache',
                 headers={
-                    'Authorization': f"Bearer {CF_API_TOKEN}",
+                    'Authorization': f'Bearer {CF_API_TOKEN}',
                     'Content-Type': 'application/json'
                 },
                 json={'purge_everything': True},
